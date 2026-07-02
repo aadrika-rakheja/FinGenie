@@ -13,6 +13,7 @@ app.use(cors());
 
 const userRoutes=require("./routes/userRoutes");
 app.use("/api/auth",userRoutes);
-
+const expenseRoutes=require("./routes/expenseRoutes");
+app.use("/api/expenses",expenseRoutes);
 
 module.exports=app;
