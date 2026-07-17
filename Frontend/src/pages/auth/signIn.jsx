@@ -17,6 +17,7 @@ export default function SignIn() {
       const data=await signIn(user);
       console.log(data);
       localStorage.setItem("token", data.token);
+      localStorage.setItem("name", data.name);
       if(data.success)
         navigate("/dashboard");
     }catch(err){

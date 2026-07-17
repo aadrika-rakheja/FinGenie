@@ -50,7 +50,18 @@ const expenseSchema = new mongoose.Schema(
     transactionDate: {
         type: Date,
         required: true
+    },
+    goal: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Goals",
+        default: null
+    },
+
+    isGoalContribution: {
+        type: Boolean,
+        default: false
     }
+
 },
 {
     timestamps: true

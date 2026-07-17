@@ -2,6 +2,7 @@ import React from 'react'
 
 export default function MainHeader({ theme, onToggleTheme }) {
   const isDark = theme === 'dark'
+  const name=localStorage.getItem('name');
 
   return (
     <header className={isDark ? 'fixed top-0 right-0 left-0 lg:left-[280px] z-40 flex justify-between items-center px-4 lg:px-10 h-16 bg-[#0b1326]/80 backdrop-blur-xl border-b border-[#475569]/30 shadow-sm' : 'fixed top-0 right-0 left-0 lg:left-[280px] z-40 flex justify-between items-center px-4 lg:px-10 h-16 bg-white border-b border-[#d3e4fe] shadow-sm'}>
@@ -26,7 +27,7 @@ export default function MainHeader({ theme, onToggleTheme }) {
         <div className={isDark ? 'h-8 w-px bg-[#475569]/30 mx-2' : 'h-8 w-px bg-[#d3e4fe] mx-2'} />
         <div className={isDark ? 'flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity' : 'flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity'}>
           <div className="text-right hidden sm:block">
-            <p className={isDark ? 'text-sm text-slate-100' : 'text-sm text-slate-900'}>Alex Rivera</p>
+            <p className={isDark ? 'text-sm text-slate-100' : 'text-sm text-slate-900'}>{name}</p>
             <p className={isDark ? 'text-[10px] uppercase tracking-[0.2em] font-bold text-teal-300' : 'text-[10px] uppercase tracking-[0.2em] font-bold text-teal-700'}>Premium User</p>
           </div>
           <img

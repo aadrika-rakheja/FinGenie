@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Sidebar from '../../components/Sidebar'
 import MainHeader from '../../components/MainHeader'
+import BottomNavigation from '../../components/BottomNavigation'
 import AddExpenseDialog from './AddExpenseDialog'
 import { addExpense,deleteExpense, editExpense, getExpenses } from '../../services/expenseService'
 
 export default function Expenses({ theme, onToggleTheme }) {
   const [transactions, setTransactions] = useState([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingExpense, setEditingExpense] = useState(null);
+  const [editingExpense, setEditingExpense] = useState(null)
+  const [daysFilter, setDaysFilter] = useState('30')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [amountFilter, setAmountFilter] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
 
   useEffect(() => {
     const fetchExpenses = async () => {
@@ -65,10 +71,61 @@ export default function Expenses({ theme, onToggleTheme }) {
     }
   }
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [daysFilter, categoryFilter, amountFilter])
+
   const isDark = theme === 'dark'
-  const hasTransactions = Array.isArray(transactions) && transactions.length > 0
 
   const normalizeCategory = (value = '') => value.toString().trim().toLowerCase().replace(/\s+/g, ' ')
+
+  const allCategories = useMemo(() => {
+    const categories = transactions
+      .map((item) => item.category)
+      .filter(Boolean)
+      .map((value) => String(value).trim())
+
+    return Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b))
+  }, [transactions])
+
+  const filteredTransactions = useMemo(() => {
+    const now = new Date()
+    const cutoffDate = new Date(now)
+
+    if (daysFilter !== 'all') {
+      cutoffDate.setDate(now.getDate() - Number(daysFilter))
+    }
+
+    const filtered = transactions.filter((item) => {
+      const transactionDate = new Date(item.transactionDate || item.date)
+      const matchesDays = daysFilter === 'all' || Number.isNaN(transactionDate.getTime()) || transactionDate >= cutoffDate
+      const matchesCategory = categoryFilter === 'all' || normalizeCategory(item.category) === normalizeCategory(categoryFilter)
+
+      return matchesDays && matchesCategory
+    })
+
+    if (amountFilter === 'high') {
+      return [...filtered].sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
+    }
+
+    if (amountFilter === 'low') {
+      return [...filtered].sort((a, b) => Number(a.amount || 0) - Number(b.amount || 0))
+    }
+
+    return filtered
+  }, [transactions, daysFilter, categoryFilter, amountFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE))
+  const startIndex = filteredTransactions.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const endIndex = filteredTransactions.length === 0 ? 0 : Math.min(currentPage * PAGE_SIZE, filteredTransactions.length)
+  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  const hasTransactions = filteredTransactions.length > 0
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   const getCategoryMeta = (category = '') => {
     const normalized = normalizeCategory(category)
@@ -115,14 +172,14 @@ export default function Expenses({ theme, onToggleTheme }) {
 
   return (
     <div className={isDark ? 'min-h-screen bg-[#0b1326] text-[#f1f5f9]' : 'min-h-screen bg-[#f8f9ff] text-[#0b1c30]'}>
-      <Sidebar theme={theme} />
+      <Sidebar theme={theme} activePage="Transactions" />
       <MainHeader theme={theme} onToggleTheme={onToggleTheme} />
-      <AddExpenseDialog open={isDialogOpen} theme={theme} onClose={() => setIsDialogOpen(false)} handleAddExpense={handleAddExpense}  editingExpense={editingExpense} handleEdit={handleEdit}/>
+      <AddExpenseDialog open={isDialogOpen} theme={theme} onClose={() => setIsDialogOpen(false)} handleAddExpense={handleAddExpense}  editingExpense={editingExpense} handleEdit={handleEdit} setEditingExpense={setEditingExpense}/>
 
       <main className="pt-24 pb-20 lg:pb-10 lg:ml-[280px] px-4 lg:px-10 min-h-screen">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
-            <h2 className={isDark ? 'text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] font-bold text-[#f1f5f9] mb-1' : 'text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] font-bold text-[#0b1c30] mb-1'}>Expenses</h2>
+            <h2 className={isDark ? 'text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] font-bold text-[#f1f5f9] mb-1' : 'text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] font-bold text-[#0b1c30] mb-1'}>Transactions</h2>
             <p className={isDark ? 'text-[16px] text-[#94a3b8]' : 'text-[16px] text-[#5c647a]'}>Review and manage your latest financial movements.</p>
           </div>
           <button onClick={() => setIsDialogOpen(true)} className={isDark? "bg-[#23a997] text-white font-bold px-6 py-3 rounded-full flex items-center gap-2 shadow-lg shadow-[#00685f]/15 hover:bg-[#1a8072] transition-all active:scale-95":"bg-[#00685f] text-white font-bold px-6 py-3 rounded-full flex items-center gap-2 shadow-lg shadow-[#00685f]/15 hover:bg-[#005049] transition-all active:scale-95"}>
@@ -133,23 +190,34 @@ export default function Expenses({ theme, onToggleTheme }) {
       
 
         <div className={isDark ? 'bg-[#131b2e] border border-[#475569]/30 rounded-2xl p-4 mb-8 flex flex-wrap items-center gap-4' : 'bg-[#f1f5ff] border border-[#d3e4fe] rounded-2xl p-4 mb-8 flex flex-wrap items-center gap-4'}>
-          <button className={isDark ? 'flex items-center gap-2 px-3 py-2 bg-[#0f172a] rounded-lg border border-[#475569]/30 text-[#94a3b8] hover:border-[#2dd4bf]/50 transition-colors cursor-pointer' : 'flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-[#d3e4fe] text-[#3d4947] hover:border-[#00685f] transition-colors cursor-pointer'}>
+          <label className={isDark ? 'flex items-center gap-2 px-3 py-2 bg-[#0f172a] rounded-xl border border-[#475569]/30 text-[#94a3b8] transition-colors' : 'flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-[#d3e4fe] text-[#3d4947] transition-colors'}>
             <span className="material-symbols-outlined text-sm">calendar_today</span>
-            <span>Last 30 Days</span>
-            <span className="material-symbols-outlined text-sm">expand_more</span>
-          </button>
-          <button className={isDark ? 'flex items-center gap-2 px-3 py-2 bg-[#0f172a] rounded-lg border border-[#475569]/30 text-[#94a3b8] hover:border-[#2dd4bf]/50 transition-colors cursor-pointer' : 'flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-[#d3e4fe] text-[#3d4947] hover:border-[#00685f] transition-colors cursor-pointer'}>
+            <select value={daysFilter} onChange={(e) => setDaysFilter(e.target.value)} className={isDark ? 'bg-[#0f172a] text-sm font-medium text-[#f1f5f9] outline-none cursor-pointer' : 'bg-transparent text-sm font-medium text-[#0b1c30] outline-none cursor-pointer'}>
+              <option value="7">Last 7 Days</option>
+              <option value="30">Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
+              <option value="all">All Time</option>
+            </select>
+          </label>
+          <label className={isDark ? 'flex items-center gap-2 px-3 py-2 bg-[#0f172a] rounded-xl border border-[#475569]/30 text-[#94a3b8] transition-colors' : 'flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-[#d3e4fe] text-[#3d4947] transition-colors'}>
             <span className="material-symbols-outlined text-sm">category</span>
-            <span>All Categories</span>
-            <span className="material-symbols-outlined text-sm">expand_more</span>
-          </button>
-          <button className={isDark ? 'flex items-center gap-2 px-3 py-2 bg-[#0f172a] rounded-lg border border-[#475569]/30 text-[#94a3b8] hover:border-[#2dd4bf]/50 transition-colors cursor-pointer' : 'flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-[#d3e4fe] text-[#3d4947] hover:border-[#00685f] transition-colors cursor-pointer'}>
+            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className={isDark ? 'bg-[#0f172a] text-sm font-medium text-[#f1f5f9] outline-none cursor-pointer min-w-[140px]' : 'bg-transparent text-sm font-medium text-[#0b1c30] outline-none cursor-pointer min-w-[140px]'}>
+              <option value="all">All Categories</option>
+              {allCategories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </label>
+          <label className={isDark ? 'flex items-center gap-2 px-3 py-2 bg-[#0f172a] rounded-xl border border-[#475569]/30 text-[#94a3b8] transition-colors' : 'flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-[#d3e4fe] text-[#3d4947] transition-colors'}>
             <span className="material-symbols-outlined text-sm">filter_alt</span>
-            <span>Amount: High to Low</span>
-            <span className="material-symbols-outlined text-sm">expand_more</span>
-          </button>
+            <select value={amountFilter} onChange={(e) => setAmountFilter(e.target.value)} className={isDark ? 'bg-[#0f172a] text-sm font-medium text-[#f1f5f9] outline-none cursor-pointer min-w-[150px]' : 'bg-transparent text-sm font-medium text-[#0b1c30] outline-none cursor-pointer min-w-[150px]'}>
+              <option value="all">Amount: All</option>
+              <option value="high">Amount: High to Low</option>
+              <option value="low">Amount: Low to High</option>
+            </select>
+          </label>
           <div className={isDark ? 'ml-auto flex items-center gap-2 text-[#94a3b8] text-[13px]' : 'ml-auto flex items-center gap-2 text-[#5c647a] text-[13px]'}>
-            <span>Showing 12 of 480 transactions</span>
+            <span>{filteredTransactions.length === 0 ? 'Showing 0 of 0 transactions' : `Showing ${startIndex}-${endIndex} of ${filteredTransactions.length} transactions`}</span>
           </div>
         </div>
 
@@ -167,7 +235,7 @@ export default function Expenses({ theme, onToggleTheme }) {
                   </tr>
                 </thead>
                 <tbody className={isDark ? 'divide-y divide-[#475569]/20' : 'divide-y divide-slate-200'}>
-                  {transactions.map((item) => {
+                  {paginatedTransactions.map((item) => {
                     const categoryMeta = getCategoryMeta(item.category)
                     const isIncome = String(item.type || '').toLowerCase() === 'income'
                     const currencySymbol = item.currency === 'USD' ? '$' : '₹'
@@ -219,18 +287,37 @@ export default function Expenses({ theme, onToggleTheme }) {
             </div>
 
             <div className={isDark ? 'px-6 py-4 bg-[#1e293b]/30 border-t border-[#475569]/30 flex items-center justify-between' : 'px-6 py-4 bg-[#eff4ff] border-t border-[#d3e4fe] flex items-center justify-between'}>
-              <button className={isDark ? 'px-4 py-2 text-[#94a3b8] text-[13px] hover:text-[#2dd4bf] transition-colors flex items-center gap-1 disabled:opacity-30' : 'px-4 py-2 text-[#5c647a] text-[13px] hover:text-[#00685f] transition-colors flex items-center gap-1 disabled:opacity-30'} disabled>
+              <button
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                className={isDark ? 'px-4 py-2 text-[#94a3b8] text-[13px] hover:text-[#2dd4bf] transition-colors flex items-center gap-1 disabled:opacity-30' : 'px-4 py-2 text-[#5c647a] text-[13px] hover:text-[#00685f] transition-colors flex items-center gap-1 disabled:opacity-30'}
+                disabled={currentPage === 1}
+              >
                 <span className="material-symbols-outlined text-sm">chevron_left</span>
                 Previous
               </button>
               <div className="flex items-center gap-1">
-                <button className="w-8 h-8 rounded-lg bg-[#2dd4bf] text-[#0f172a] font-bold text-[12px]">1</button>
-                <button className={isDark ? 'w-8 h-8 rounded-lg hover:bg-[#0f172a] text-[#94a3b8] text-[12px]' : 'w-8 h-8 rounded-lg hover:bg-[#d3e4fe] text-[#5c647a] text-[12px]'}>2</button>
-                <button className={isDark ? 'w-8 h-8 rounded-lg hover:bg-[#0f172a] text-[#94a3b8] text-[12px]' : 'w-8 h-8 rounded-lg hover:bg-[#d3e4fe] text-[#5c647a] text-[12px]'}>3</button>
-                <span className={isDark ? 'text-[#94a3b8] px-2' : 'text-[#5c647a] px-2'}>...</span>
-                <button className={isDark ? 'w-8 h-8 rounded-lg hover:bg-[#0f172a] text-[#94a3b8] text-[12px]' : 'w-8 h-8 rounded-lg hover:bg-[#d3e4fe] text-[#5c647a] text-[12px]'}>12</button>
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => {
+                  const isActive = page === currentPage
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={isActive
+                       ? isDark?'w-8 h-8 rounded-lg bg-[#2dd4bf] text-[#0f172a] font-bold text-[12px]':'w-8 h-8 rounded-lg bg-[#0D9488] text-white font-bold text-[12px]'
+                        : isDark
+                          ? 'w-8 h-8 rounded-lg hover:bg-[#0f172a] text-[#94a3b8] text-[12px]'
+                          : 'w-8 h-8 rounded-lg hover:bg-[#d3e4fe] text-[#5c647a] text-[12px]'}
+                    >
+                      {page}
+                    </button>
+                  )
+                })}
               </div>
-              <button className={isDark ? 'px-4 py-2 text-[#94a3b8] text-[13px] hover:text-[#2dd4bf] transition-colors flex items-center gap-1' : 'px-4 py-2 text-[#5c647a] text-[13px] hover:text-[#00685f] transition-colors flex items-center gap-1'}>
+              <button
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                className={isDark ? 'px-4 py-2 text-[#94a3b8] text-[13px] hover:text-[#2dd4bf] transition-colors flex items-center gap-1 disabled:opacity-30' : 'px-4 py-2 text-[#5c647a] text-[13px] hover:text-[#00685f] transition-colors flex items-center gap-1 disabled:opacity-30'}
+                disabled={currentPage === totalPages}
+              >
                 Next
                 <span className="material-symbols-outlined text-sm">chevron_right</span>
               </button>
@@ -242,9 +329,11 @@ export default function Expenses({ theme, onToggleTheme }) {
               <span className="material-symbols-outlined text-[34px]">analytics</span>
             </div>
             <div className="text-center">
-              <h3 className={isDark ? 'text-[24px] font-semibold text-[#f8fafc]' : 'text-[24px] font-semibold text-[#0b1c30]'}>No expenses yet</h3>
+              <h3 className={isDark ? 'text-[24px] font-semibold text-[#f8fafc]' : 'text-[24px] font-semibold text-[#0b1c30]'}>{transactions.length === 0 ? 'No expenses yet' : 'No expenses match these filters'}</h3>
               <p className={isDark ? 'mx-auto mt-3 max-w-[520px] text-[15px] leading-7 text-[#94a3b8]' : 'mx-auto mt-3 max-w-[520px] text-[15px] leading-7 text-[#475569]'}>
-                Start tracking your spending by adding your first expense and keep your finances beautifully organized.
+                {transactions.length === 0
+                  ? 'Start tracking your spending by adding your first expense and keep your finances beautifully organized.'
+                  : 'Try changing the date range, category, or amount order to see more transactions.'}
               </p>
               <button
                 onClick={() => setIsDialogOpen(true)}
@@ -288,28 +377,7 @@ export default function Expenses({ theme, onToggleTheme }) {
         </div>
       </main>
 
-      <nav className={isDark ? 'lg:hidden fixed bottom-0 left-0 w-full z-50 bg-[#0f172a] border-t border-[#475569]/20 shadow-lg px-4 py-2 flex justify-around items-center rounded-t-xl' : 'lg:hidden fixed bottom-0 left-0 w-full z-50 bg-white border-t border-[#d3e4fe] shadow-lg px-4 py-2 flex justify-around items-center rounded-t-xl'}>
-        <a className={isDark ? 'flex flex-col items-center justify-center text-[#94a3b8] p-2 hover:bg-[#1e293b] transition-transform active:scale-90' : 'flex flex-col items-center justify-center text-[#5c647a] p-2 hover:bg-[#eff4ff] transition-transform active:scale-90'} href="#">
-          <span className="material-symbols-outlined">home</span>
-          <span className="text-[13px]">Home</span>
-        </a>
-        <a className={isDark ? 'flex flex-col items-center justify-center text-[#2dd4bf] bg-[#2dd4bf]/10 rounded-xl p-2 active:scale-90 transition-transform' : 'flex flex-col items-center justify-center text-[#00685f] bg-[#e6f7f3] rounded-xl p-2 active:scale-90 transition-transform'} href="#">
-          <span className="material-symbols-outlined">account_balance</span>
-          <span className="text-[13px]">Finance</span>
-        </a>
-        <a className={isDark ? 'flex flex-col items-center justify-center text-[#94a3b8] p-2 hover:bg-[#1e293b] transition-transform active:scale-90' : 'flex flex-col items-center justify-center text-[#5c647a] p-2 hover:bg-[#eff4ff] transition-transform active:scale-90'} href="#">
-          <span className="material-symbols-outlined">psychology</span>
-          <span className="text-[13px]">Advisor</span>
-        </a>
-        <a className={isDark ? 'flex flex-col items-center justify-center text-[#94a3b8] p-2 hover:bg-[#1e293b] transition-transform active:scale-90' : 'flex flex-col items-center justify-center text-[#5c647a] p-2 hover:bg-[#eff4ff] transition-transform active:scale-90'} href="#">
-          <span className="material-symbols-outlined">bar_chart</span>
-          <span className="text-[13px]">Reports</span>
-        </a>
-        <a className={isDark ? 'flex flex-col items-center justify-center text-[#94a3b8] p-2 hover:bg-[#1e293b] transition-transform active:scale-90' : 'flex flex-col items-center justify-center text-[#5c647a] p-2 hover:bg-[#eff4ff] transition-transform active:scale-90'} href="#">
-          <span className="material-symbols-outlined">settings</span>
-          <span className="text-[13px]">Settings</span>
-        </a>
-      </nav>
+      <BottomNavigation theme={theme} activeItem="Home" />
     </div>
   )
 }

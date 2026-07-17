@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
 
-export default function AddExpenseDialog({ open, theme, onClose ,handleAddExpense, editingExpense, handleEdit}) {
+export default function AddExpenseDialog({ open, theme, onClose ,handleAddExpense, editingExpense, handleEdit,setEditingExpense}) {
   if (!open) return null
 
   const isDark = theme === 'dark'
@@ -86,7 +86,7 @@ export default function AddExpenseDialog({ open, theme, onClose ,handleAddExpens
         });
       setSelectedType(editingExpense.type);
     } else {
-        setExpense(initialExpense);
+        setExpense(initialState);
         setSelectedType("Expense");
     }
   },[editingExpense,open])
@@ -112,13 +112,21 @@ export default function AddExpenseDialog({ open, theme, onClose ,handleAddExpens
       handleAddExpense(expense);
   }
   
+  const handleClose=()=>{
+    setEditingExpense(null);
+    setExpense(initialState);
+    setSelectedType("Expense");
+    onClose();
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 pt-5 pb-[20px] bg-slate-950/20 backdrop-blur-xl">
       <div className="relative w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden flex flex-col mb-[35px]" style={{ animation: 'dialogPop 220ms ease-out' }}>
         <div className={`p-6 border-b ${headerClass} flex items-center justify-between bg-opacity-90 ${panelClass}`}>
-          <h3 className={isDark ? 'text-[20px] font-bold text-[#f1f5f9]' : 'text-[20px] font-bold text-[#0b1c30]'}>Add New Expense</h3>
-          <button className={isDark ? 'text-[#94a3b8] hover:text-[#2dd4bf]' : 'text-[#5c647a] hover:text-[#00685f]'} type="button" onClick={onClose}>
+          <h3 className={isDark ? 'text-[20px] font-bold text-[#f1f5f9]' : 'text-[20px] font-bold text-[#0b1c30]'}>
+            {selectedType=='Expense'?"Add New Expense":"Add New Income"}
+          </h3>
+          <button className={isDark ? 'text-[#94a3b8] hover:text-[#2dd4bf]' : 'text-[#5c647a] hover:text-[#00685f]'} type="button" onClick={handleClose}>
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -206,11 +214,11 @@ export default function AddExpenseDialog({ open, theme, onClose ,handleAddExpens
         
 
           <div className={`p-6 border-t ${headerClass} bg-opacity-90 ${panelClass} flex gap-3`}>
-            <button type="button" onClick={onClose} className={`flex-1 rounded-2xl px-6 py-3 font-medium transition ${buttonSecondary}`}>
+            <button type="button" onClick={handleClose} className={`flex-1 rounded-2xl px-6 py-3 font-medium transition ${buttonSecondary}`}>
               Cancel
             </button>
             <button type="submit" className={`flex-1 rounded-2xl px-6 py-3 font-bold transition ${buttonPrimary}`}>
-              {editingExpense? "Edit Expense" : "Add Expense"}
+              {editingExpense? "Edit Expense" : selectedType=='Expense'?"Add Expense":"Add Income"}
             </button>
           </div>
           </form>

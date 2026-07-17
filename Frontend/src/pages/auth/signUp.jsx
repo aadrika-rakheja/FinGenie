@@ -33,6 +33,8 @@ export default function SignUp(){
       const data=await signUp(user);
       console.log(data);
       localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      console.log(user);
       if(data.success)
         navigate("/dashboard");
     }catch(err){

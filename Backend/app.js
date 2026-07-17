@@ -15,5 +15,9 @@ const userRoutes=require("./routes/userRoutes");
 app.use("/api/auth",userRoutes);
 const expenseRoutes=require("./routes/expenseRoutes");
 app.use("/api/expenses",expenseRoutes);
+const budgetRoutes=require("./routes/budgetRoutes");
+app.use("/api/budgets",budgetRoutes);
+const goalRoutes=require("./routes/goalRoutes");
+app.use("/api/goals",goalRoutes);
 
 module.exports=app;

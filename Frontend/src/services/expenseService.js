@@ -32,10 +32,10 @@ export const getExpenses=async()=>{
     }   
 }
 
-export const editExpense=async(id)=>{
+export const editExpense=async(id,expense)=>{
     try{
         const token=localStorage.getItem("token");
-        const res=await axios.put(`${API_URL}editExpense/${id}`,{
+        const res=await axios.put(`${API_URL}editExpense/${id}`,expense,{
             headers:{
                 "Authorization": `Bearer ${token}`
             }
